@@ -1,0 +1,319 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAS Online - Universitas Siliwangi</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 15px;
+    font-family: Arial, sans-serif;
+    background: #f1f4f8;
+    color: #1e293b;
+}
+
+.container {
+    max-width: 1100px;
+    margin: auto;
+}
+
+.header {
+    background: #123c32;
+    color: white;
+    text-align: center;
+    padding: 25px 15px;
+    border-radius: 12px;
+}
+
+.header h2 { margin: 0 0 10px; }
+
+.card {
+    background: white;
+    padding: 25px;
+    margin-top: 20px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+input {
+    width: 90%;
+    max-width: 400px;
+    padding: 14px;
+    font-size: 18px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    margin: 15px 0;
+}
+
+button {
+    padding: 14px 28px;
+    background: #087b55;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#ujian, #habis { display: none; }
+
+.timer-box {
+    background: #123c32;
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    margin-top: 20px;
+}
+
+#timer {
+    font-family: 'Courier New', monospace;
+    font-size: clamp(55px, 10vw, 95px);
+    font-weight: bold;
+    color: #00ff99;
+    margin: 10px;
+}
+
+#timer.warning { color: #ff4444; }
+
+.form-box {
+    margin-top: 20px;
+    background: white;
+    padding: 10px;
+    border-radius: 10px;
+}
+
+iframe {
+    width: 100%;
+    height: 1100px;
+    border: none;
+}
+
+#habis {
+    background: white;
+    padding: 40px;
+    text-align: center;
+    color: #c62828;
+    margin-top: 20px;
+    border-radius: 12px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h2>UJIAN AKHIR SEMESTER</h2>
+        <p>FAKULTAS EKONOMI DAN BISNIS</p>
+        <p>UNIVERSITAS SILIWANGI</p>
+    </div>
+
+    <!-- IDENTITAS MAHASISWA -->
+    <div class="card" id="awal">
+
+        <h2>IDENTITAS PESERTA UJIAN</h2>
+
+        <p>Masukkan Nomor Pokok Mahasiswa (NPM)</p>
+
+        <input
+            type="text"
+            id="npm"
+            placeholder="Masukkan NPM"
+            autocomplete="off"
+        >
+
+        <br>
+
+        <button onclick="mulaiUjian()">
+            MULAI UJIAN
+        </button>
+
+        <p style="font-size:13px;color:#777">
+            Waktu pengerjaan adalah 45 menit.
+        </p>
+
+    </div>
+
+    <!-- HALAMAN UJIAN -->
+    <div id="ujian">
+
+        <div class="timer-box">
+
+            <h3>WAKTU TERSISA</h3>
+
+            <div id="timer">45:00</div>
+
+            <p>NPM: <span id="npmPeserta"></span></p>
+
+        </div>
+
+        <div class="form-box">
+
+            <iframe
+                id="formFrame"
+                title="Soal Ujian"
+            ></iframe>
+
+        </div>
+
+    </div>
+
+    <!-- WAKTU HABIS -->
+    <div id="habis">
+
+        <h2>WAKTU UJIAN HABIS!</h2>
+
+        <p>Waktu pengerjaan 45 menit telah berakhir.</p>
+
+        <p>Terima kasih telah mengikuti ujian.</p>
+
+    </div>
+
+</div>
+
+<script>
+
+// ===================================
+// PENGATURAN
+// ===================================
+
+const DURASI = 45 * 60 * 1000;
+
+// GANTI DENGAN LINK GOOGLE FORM BAPAK
+const FORM_URL =
+"https://docs.google.com/forms/d/e/ID_FORM_ANDA/viewform?embedded=true";
+
+const STORAGE_KEY = "UJIAN_UAS_MO1_2026";
+
+let deadline = null;
+let interval = null;
+let npmAktif = "";
+
+// ===================================
+// MULAI UJIAN
+// ===================================
+
+function mulaiUjian() {
+
+    const npm = document.getElementById("npm")
+                      .value.trim();
+
+    if (!npm) {
+        alert("NPM wajib diisi!");
+        return;
+    }
+
+    if (!/^[0-9]+$/.test(npm)) {
+        alert("NPM harus berupa angka!");
+        return;
+    }
+
+    npmAktif = npm;
+
+    let data = {};
+
+    try {
+        data = JSON.parse(
+            localStorage.getItem(STORAGE_KEY) || "{}"
+        );
+    } catch(e) {
+        data = {};
+    }
+
+    // Cek waktu ujian sebelumnya
+    if (data[npm]) {
+
+        deadline = data[npm];
+
+    } else {
+
+        // Mulai hitung 45 menit
+        deadline = Date.now() + DURASI;
+
+        data[npm] = deadline;
+
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(data)
+        );
+
+    }
+
+    document.getElementById("awal").style.display = "none";
+
+    document.getElementById("npmPeserta").textContent = npm;
+
+    if (deadline <= Date.now()) {
+        waktuHabis();
+        return;
+    }
+
+    document.getElementById("ujian").style.display = "block";
+
+    // Memunculkan Google Form
+    document.getElementById("formFrame").src = FORM_URL;
+
+    updateTimer();
+
+    interval = setInterval(updateTimer, 500);
+}
+
+// ===================================
+// HITUNG MUNDUR
+// ===================================
+
+function updateTimer() {
+
+    const sisa = Math.max(
+        0,
+        Math.ceil((deadline - Date.now()) / 1000)
+    );
+
+    const menit = Math.floor(sisa / 60);
+    const detik = sisa % 60;
+
+    document.getElementById("timer").textContent =
+        String(menit).padStart(2, "0") + ":" +
+        String(detik).padStart(2, "0");
+
+    // Merah ketika tersisa 5 menit
+    if (sisa <= 300) {
+        document.getElementById("timer")
+                .classList.add("warning");
+    }
+
+    if (sisa <= 0) {
+        waktuHabis();
+    }
+}
+
+// ===================================
+// WAKTU HABIS
+// ===================================
+
+function waktuHabis() {
+
+    clearInterval(interval);
+
+    document.getElementById("formFrame").src = "about:blank";
+
+    document.getElementById("ujian").style.display = "none";
+
+    document.getElementById("awal").style.display = "none";
+
+    document.getElementById("habis").style.display = "block";
+
+}
+
+</script>
+
+</body>
+</html>
